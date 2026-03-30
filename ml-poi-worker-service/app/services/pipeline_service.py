@@ -39,7 +39,10 @@ class PipelineService:
         address = self.normalization_service.normalize_address(raw_poi.address)
         description_full = self.normalization_service.normalize_description(raw_poi.description)
 
-        description = self.summarizer_service.summarize(description_full, max_sentences=2)
+        description, summary_mode = self.summarizer_service.summarize(
+            description_full,
+            max_sentences=2,
+        )
 
         poi_type_hint = request.poi_type_hint.strip().lower() if request.poi_type_hint else None
 
@@ -72,12 +75,15 @@ class PipelineService:
             has_address=bool(address),
             has_coordinates=True,
             has_source_url=bool(raw_poi.source.source_url),
+            has_media=bool(raw_poi.media),
         )
 
         quality_score = self.score_service.calculate_quality_score(
             confidence_score=confidence_score,
             toxicity_detected=toxicity_detected,
             errors_count=len(validation_errors),
+            used_fallback=(summary_mode == "fallback"),
+            has_duplicate_risk=False,
         )
 
         if validation_errors:
@@ -127,10 +133,11 @@ class PipelineService:
         )
 
 
-        warnings=[
+        warnings = [
             "Используется import layer через client/parser",
-            "Summarizer использует ML-модель или fallback-режим",
+            f"Summarizer mode: {summary_mode}",
         ]
+
         if request.source_code.value == "TWO_GIS":
             warnings.append("Источник TWO_GIS пока работает как mock provider")
         elif request.source_code.value == "WIKIPEDIA":

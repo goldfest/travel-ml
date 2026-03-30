@@ -1,14 +1,16 @@
 from app.models.model_loader import ModelLoader
+from app.utils.text_postprocessor import TextPostprocessor
 
 
 class SummarizerService:
     def __init__(self) -> None:
         self.model_loader = ModelLoader()
         self.summarizer = self.model_loader.load_summarizer()
+        self.text_postprocessor = TextPostprocessor()
 
-    def summarize(self, text: str, max_sentences: int = 2) -> str:
+    def summarize(self, text: str, max_sentences: int = 2) -> tuple[str, str]:
         if not text:
-            return ""
+            return "", "empty"
 
         if self.summarizer is not None:
             try:
@@ -17,16 +19,22 @@ class SummarizerService:
                     max_length=80,
                     min_length=20,
                     do_sample=False,
+                    no_repeat_ngram_size=3,
+                    repetition_penalty=1.2,
                 )
 
                 if result and isinstance(result, list):
                     summary_text = result[0].get("summary_text", "").strip()
+                    summary_text = self.text_postprocessor.cleanup_summary(summary_text)
+
                     if summary_text:
-                        return summary_text
+                        return summary_text, "ml"
             except Exception:
                 pass
 
-        return self._rule_based_fallback(text=text, max_sentences=max_sentences)
+        fallback = self._rule_based_fallback(text=text, max_sentences=max_sentences)
+        fallback = self.text_postprocessor.cleanup_summary(fallback)
+        return fallback, "fallback"
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:
         sentences = [
