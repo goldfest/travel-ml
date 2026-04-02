@@ -1,5 +1,6 @@
+from app.schemas.common import RawHourData, RawMediaData, RawPoiData, RawSourceData
 from app.schemas.enums import MediaType, StatusRecommendation
-from app.schemas.request import ImportFromSourceRequest
+from app.schemas.request import ImportFromSourceRequest, EnrichRawRequest
 from app.schemas.response import (
     EnrichResponse,
     PoiDraft,
@@ -34,7 +35,64 @@ class PipelineService:
             source_code=request.source_code,
             source_url=str(request.source_url),
         )
+        return self._build_enrich_response(
+            raw_poi=raw_poi,
+            city_id=request.city_id,
+            poi_type_hint=request.poi_type_hint,
+            source_code=request.source_code.value,
+        )
 
+    def enrich_raw(self, request: EnrichRawRequest) -> EnrichResponse:
+        raw_request = request.raw_poi
+
+        raw_poi = RawPoiData(
+            name=raw_request.name,
+            description=raw_request.description,
+            address=raw_request.address,
+            latitude=raw_request.latitude,
+            longitude=raw_request.longitude,
+            phone=raw_request.phone,
+            site_url=raw_request.site_url,
+            price_level=raw_request.price_level,
+            poi_type_code=raw_request.poi_type_code,
+            features=raw_request.features,
+            hours=[
+                RawHourData(
+                    day_of_week=hour.day_of_week,
+                    open_time=hour.open_time,
+                    close_time=hour.close_time,
+                    around_the_clock=hour.around_the_clock,
+                )
+                for hour in raw_request.hours
+            ],
+            media=[
+                RawMediaData(
+                    url=media.url,
+                    media_type=media.media_type,
+                )
+                for media in raw_request.media
+            ],
+            source=RawSourceData(
+                source_code=raw_request.source.source_code,
+                source_url=raw_request.source.source_url,
+                external_id=raw_request.source.external_id,
+            ),
+        )
+
+        return self._build_enrich_response(
+            raw_poi=raw_poi,
+            city_id=request.city_id,
+            poi_type_hint=request.poi_type_hint,
+            source_code=raw_poi.source.source_code,
+        )
+
+    def _build_enrich_response(
+        self,
+        raw_poi: RawPoiData,
+        city_id: int,
+        poi_type_hint: str | None,
+        source_code: str,
+    ) -> EnrichResponse:
         name = self.normalization_service.normalize_name(raw_poi.name)
         address = self.normalization_service.normalize_address(raw_poi.address)
         description_full = self.normalization_service.normalize_description(raw_poi.description)
@@ -44,13 +102,14 @@ class PipelineService:
             max_sentences=2,
         )
 
-        poi_type_hint = request.poi_type_hint.strip().lower() if request.poi_type_hint else None
+        poi_type_hint_normalized = poi_type_hint.strip().lower() if poi_type_hint else None
 
-        if poi_type_hint in {None, "", "string"}:
+        if poi_type_hint_normalized in {None, "", "string"}:
             poi_type_code = raw_poi.poi_type_code or "landmark"
         else:
-            poi_type_code = poi_type_hint
-        slug = self.slug_service.generate_slug(name=name, city_id=request.city_id)
+            poi_type_code = poi_type_hint_normalized
+
+        slug = self.slug_service.generate_slug(name=name, city_id=city_id)
 
         tags = self.tags_service.generate_tags(
             name=name,
@@ -104,7 +163,7 @@ class PipelineService:
             phone=raw_poi.phone,
             site_url=raw_poi.site_url,
             price_level=raw_poi.price_level,
-            city_id=request.city_id,
+            city_id=city_id,
             poi_type_code=poi_type_code,
             features=raw_poi.features,
             hours=[
@@ -132,17 +191,10 @@ class PipelineService:
             ],
         )
 
-
         warnings = [
-            "Используется import layer через client/parser",
+            "Summarizer pipeline executed",
             f"Summarizer mode: {summary_mode}",
         ]
-
-        if request.source_code.value == "TWO_GIS":
-            warnings.append("Источник TWO_GIS пока работает как mock provider")
-        elif request.source_code.value == "WIKIPEDIA":
-            warnings.append("Источник WIKIPEDIA работает через реальный HTTP API")
-        
 
         quality = QualityInfo(
             confidence_score=confidence_score,

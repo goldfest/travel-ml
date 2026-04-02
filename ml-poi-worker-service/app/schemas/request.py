@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, HttpUrl
-from typing import Optional
+from typing import Dict, List, Optional
 
 from app.schemas.enums import SourceCode
 
@@ -14,3 +14,44 @@ class ImportFromSourceRequest(BaseModel):
         max_length=100,
         description="Подсказка типа POI, если известна заранее",
     )
+
+
+class RawHourRequest(BaseModel):
+    day_of_week: int = Field(..., ge=0, le=6)
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
+    around_the_clock: bool = False
+
+
+class RawMediaRequest(BaseModel):
+    url: str
+    media_type: str = "IMAGE"
+
+
+class RawSourceRequest(BaseModel):
+    source_code: str
+    source_url: str
+    external_id: Optional[str] = None
+
+
+class RawPoiRequest(BaseModel):
+    name: str
+    description: str
+    address: str
+    latitude: float
+    longitude: float
+    phone: Optional[str] = None
+    site_url: Optional[str] = None
+    price_level: Optional[int] = None
+    poi_type_code: Optional[str] = None
+    features: Dict[str, str] = {}
+    hours: List[RawHourRequest] = []
+    media: List[RawMediaRequest] = []
+    source: RawSourceRequest
+
+
+class EnrichRawRequest(BaseModel):
+    city_id: int = Field(..., ge=1)
+    language: str = Field(default="ru", min_length=2, max_length=10)
+    poi_type_hint: Optional[str] = None
+    raw_poi: RawPoiRequest
