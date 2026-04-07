@@ -36,8 +36,8 @@ class RawSourceRequest(BaseModel):
 
 class RawPoiRequest(BaseModel):
     name: str
-    description: str
-    address: str
+    description: str = ""
+    address: str = ""
     latitude: float
     longitude: float
     phone: Optional[str] = None
