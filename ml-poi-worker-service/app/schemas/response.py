@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 from app.schemas.enums import MediaType, StatusRecommendation
 
@@ -12,8 +13,8 @@ class HealthResponse(BaseModel):
 
 class PoiHourDraft(BaseModel):
     day_of_week: int = Field(..., ge=0, le=6)
-    open_time: str
-    close_time: str
+    open_time: Optional[str] = None
+    close_time: Optional[str] = None
     around_the_clock: bool = False
 
 
@@ -31,9 +32,9 @@ class PoiSourceDraft(BaseModel):
 class PoiDraft(BaseModel):
     name: str
     slug: str
-    tags: List[str] = []
+    tags: List[str] = Field(default_factory=list)
     description: str
-    address: str
+    address: Optional[str] = None
     latitude: float
     longitude: float
     phone: Optional[str] = None
@@ -41,19 +42,19 @@ class PoiDraft(BaseModel):
     price_level: Optional[int] = Field(default=None, ge=0, le=4)
     city_id: int
     poi_type_code: str
-    features: Dict[str, str] = {}
-    hours: List[PoiHourDraft] = []
-    media: List[PoiMediaDraft] = []
-    sources: List[PoiSourceDraft] = []
+    features: Dict[str, str] = Field(default_factory=dict)
+    hours: List[PoiHourDraft] = Field(default_factory=list)
+    media: List[PoiMediaDraft] = Field(default_factory=list)
+    sources: List[PoiSourceDraft] = Field(default_factory=list)
 
 
 class QualityInfo(BaseModel):
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     quality_score: float = Field(..., ge=0.0, le=1.0)
     toxicity_detected: bool = False
-    stop_words_detected: List[str] = []
-    errors: List[str] = []
-    warnings: List[str] = []
+    stop_words_detected: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
 
 
 class EnrichResponse(BaseModel):

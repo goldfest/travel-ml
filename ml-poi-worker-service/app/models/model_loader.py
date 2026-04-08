@@ -33,3 +33,6 @@ class ModelLoader:
     @property
     def load_error(self) -> str | None:
         return self._load_error
+
+
+model_loader = ModelLoader()

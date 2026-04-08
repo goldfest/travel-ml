@@ -117,22 +117,32 @@ class PipelineService:
             poi_type_code=poi_type_code,
         )
 
+        source_code_normalized = (source_code or "").strip().upper()
+        require_address = source_code_normalized not in {"WIKIPEDIA"}
+
         validation_errors = self.validation_service.validate_required_fields(
             name=name,
             description=description,
             address=address,
             latitude=raw_poi.latitude,
             longitude=raw_poi.longitude,
+            require_address=require_address,
         )
 
         stop_words_detected = self.moderation_service.detect_stop_words(description)
         toxicity_detected = self.moderation_service.has_toxicity(description)
 
+        has_coordinates = (
+            raw_poi.latitude is not None
+            and raw_poi.longitude is not None
+            and not (raw_poi.latitude == 0.0 and raw_poi.longitude == 0.0)
+        )
+
         confidence_score = self.score_service.calculate_confidence_score(
             has_name=bool(name),
             has_description=bool(description),
-            has_address=bool(address),
-            has_coordinates=True,
+            has_address=bool(address and address.strip()),
+            has_coordinates=has_coordinates,
             has_source_url=bool(raw_poi.source.source_url),
             has_media=bool(raw_poi.media),
         )

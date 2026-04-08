@@ -1,10 +1,10 @@
-from app.models.model_loader import ModelLoader
+from app.models.model_loader import model_loader
 from app.utils.text_postprocessor import TextPostprocessor
 
 
 class SummarizerService:
     def __init__(self) -> None:
-        self.model_loader = ModelLoader()
+        self.model_loader = model_loader
         self.summarizer = self.model_loader.load_summarizer()
         self.text_postprocessor = TextPostprocessor()
 

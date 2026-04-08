@@ -32,21 +32,28 @@ class ValidationService:
 
         return errors
 
+    def validate_address(self, address: str | None, require_address: bool) -> list[str]:
+        errors = []
+
+        if require_address and (not address or not address.strip()):
+            errors.append("Адрес POI отсутствует")
+
+        return errors
+
     def validate_required_fields(
         self,
         name: str,
         description: str,
-        address: str,
+        address: str | None,
         latitude: float,
         longitude: float,
+        require_address: bool = True,
     ) -> list[str]:
         errors = []
 
         errors.extend(self.validate_name(name))
         errors.extend(self.validate_description(description))
         errors.extend(self.validate_coordinates(latitude, longitude))
-
-        if not address or not address.strip():
-            errors.append("Адрес POI отсутствует")
+        errors.extend(self.validate_address(address, require_address))
 
         return errors

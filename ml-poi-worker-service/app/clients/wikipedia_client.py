@@ -18,19 +18,20 @@ class WikipediaClient:
 
         coordinates = data.get("coordinates", {})
         thumbnail = data.get("thumbnail", {})
+        page_url = (
+            data.get("content_urls", {})
+            .get("desktop", {})
+            .get("page", source_url)
+        )
 
         return {
             "name": data.get("title", "Неизвестный объект"),
             "description": data.get("extract", ""),
-            "address": data.get("content_urls", {})
-                .get("desktop", {})
-                .get("page", source_url),
+            "address": None,
             "latitude": coordinates.get("lat", 0.0),
             "longitude": coordinates.get("lon", 0.0),
             "phone": None,
-            "site_url": data.get("content_urls", {})
-                .get("desktop", {})
-                .get("page", source_url),
+            "site_url": page_url,
             "price_level": 0,
             "poi_type_code": "landmark",
             "features": {

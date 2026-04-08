@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, HttpUrl
 from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field, HttpUrl
 
 from app.schemas.enums import SourceCode
 
@@ -37,16 +38,16 @@ class RawSourceRequest(BaseModel):
 class RawPoiRequest(BaseModel):
     name: str
     description: str = ""
-    address: str = ""
+    address: Optional[str] = None
     latitude: float
     longitude: float
     phone: Optional[str] = None
     site_url: Optional[str] = None
     price_level: Optional[int] = None
     poi_type_code: Optional[str] = None
-    features: Dict[str, str] = {}
-    hours: List[RawHourRequest] = []
-    media: List[RawMediaRequest] = []
+    features: Dict[str, str] = Field(default_factory=dict)
+    hours: List[RawHourRequest] = Field(default_factory=list)
+    media: List[RawMediaRequest] = Field(default_factory=list)
     source: RawSourceRequest
 
 

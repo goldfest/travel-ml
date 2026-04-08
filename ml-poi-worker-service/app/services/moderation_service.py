@@ -1,9 +1,11 @@
+import re
 from pathlib import Path
 
 
 class ModerationService:
     def __init__(self) -> None:
         self.stop_words = self._load_stop_words()
+        self._patterns = self._compile_patterns(self.stop_words)
 
     def _load_stop_words(self) -> set[str]:
         stop_words_path = Path(__file__).resolve().parent.parent / "resources" / "stop_words.txt"
@@ -18,9 +20,22 @@ class ModerationService:
                 if line.strip()
             }
 
+    def _compile_patterns(self, stop_words: set[str]) -> dict[str, re.Pattern]:
+        patterns: dict[str, re.Pattern] = {}
+        for word in stop_words:
+            escaped = re.escape(word)
+            patterns[word] = re.compile(rf"(?<!\w){escaped}(?!\w)", flags=re.IGNORECASE | re.UNICODE)
+        return patterns
+
     def detect_stop_words(self, text: str) -> list[str]:
-        text_lower = text.lower()
-        found = [word for word in self.stop_words if word in text_lower]
+        if not text:
+            return []
+
+        found = [
+            word
+            for word, pattern in self._patterns.items()
+            if pattern.search(text)
+        ]
         return sorted(found)
 
     def has_toxicity(self, text: str) -> bool:
