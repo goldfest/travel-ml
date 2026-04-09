@@ -5,16 +5,20 @@ from app.utils.text_postprocessor import TextPostprocessor
 class SummarizerService:
     def __init__(self) -> None:
         self.model_loader = model_loader
-        self.summarizer = self.model_loader.load_summarizer()
         self.text_postprocessor = TextPostprocessor()
+
+    def _get_summarizer(self):
+        return self.model_loader.load_summarizer()
 
     def summarize(self, text: str, max_sentences: int = 2) -> tuple[str, str]:
         if not text:
             return "", "empty"
 
-        if self.summarizer is not None:
+        summarizer = self._get_summarizer()
+
+        if summarizer is not None:
             try:
-                result = self.summarizer(
+                result = summarizer(
                     text,
                     max_length=80,
                     min_length=20,
@@ -56,7 +60,7 @@ class SummarizerService:
     def get_model_info(self) -> dict:
         return {
             "model_name": self.model_loader.model_name,
-            "is_loaded": self.summarizer is not None,
+            "is_loaded": self.model_loader.model_name is not None,
             "load_error": self.model_loader.load_error,
             "fallback_enabled": True,
         }
