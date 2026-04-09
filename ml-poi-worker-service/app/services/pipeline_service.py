@@ -1,6 +1,6 @@
 from app.schemas.common import RawHourData, RawMediaData, RawPoiData, RawSourceData
 from app.schemas.enums import MediaType, StatusRecommendation
-from app.schemas.request import ImportFromSourceRequest, EnrichRawRequest
+from app.schemas.request import EnrichRawRequest, ImportFromSourceRequest
 from app.schemas.response import (
     EnrichResponse,
     PoiDraft,
@@ -120,7 +120,7 @@ class PipelineService:
         source_code_normalized = (source_code or "").strip().upper()
         require_address = source_code_normalized not in {"WIKIPEDIA"}
 
-        validation_errors = self.validation_service.validate_required_fields(
+        validation_errors, validation_warnings = self.validation_service.validate_for_pipeline(
             name=name,
             description=description,
             address=address,
@@ -150,14 +150,14 @@ class PipelineService:
         quality_score = self.score_service.calculate_quality_score(
             confidence_score=confidence_score,
             toxicity_detected=toxicity_detected,
-            errors_count=len(validation_errors),
+            errors_count=len(validation_errors) + len(validation_warnings),
             used_fallback=(summary_mode == "fallback"),
             has_duplicate_risk=False,
         )
 
         if validation_errors:
             status = StatusRecommendation.REJECTED
-        elif toxicity_detected or quality_score < 0.8:
+        elif toxicity_detected or validation_warnings or quality_score < 0.8:
             status = StatusRecommendation.PENDING_REVIEW
         else:
             status = StatusRecommendation.AUTO_PUBLISH
@@ -196,15 +196,20 @@ class PipelineService:
                 PoiSourceDraft(
                     source_code=raw_poi.source.source_code,
                     source_url=raw_poi.source.source_url,
+                    external_id=raw_poi.source.external_id,
                     confidence_score=confidence_score,
                 )
             ],
         )
 
-        warnings = [
-            "Summarizer pipeline executed",
-            f"Summarizer mode: {summary_mode}",
-        ]
+        warnings = [f"Summarizer mode: {summary_mode}"]
+        warnings.extend(validation_warnings)
+
+        if stop_words_detected:
+            warnings.append("Stop words detected in generated description")
+
+        if not raw_poi.media:
+            warnings.append("No media provided by source")
 
         quality = QualityInfo(
             confidence_score=confidence_score,

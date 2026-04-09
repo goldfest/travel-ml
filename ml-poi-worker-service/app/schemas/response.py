@@ -26,6 +26,7 @@ class PoiMediaDraft(BaseModel):
 class PoiSourceDraft(BaseModel):
     source_code: str
     source_url: str
+    external_id: Optional[str] = None
     confidence_score: float = Field(..., ge=0.0, le=1.0)
 
 

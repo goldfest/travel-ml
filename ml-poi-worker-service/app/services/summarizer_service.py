@@ -1,4 +1,5 @@
 from app.models.model_loader import model_loader
+from app.utils.text_cleaner import TextCleaner
 from app.utils.text_postprocessor import TextPostprocessor
 
 
@@ -6,12 +7,15 @@ class SummarizerService:
     def __init__(self) -> None:
         self.model_loader = model_loader
         self.text_postprocessor = TextPostprocessor()
+        self.text_cleaner = TextCleaner()
 
     def _get_summarizer(self):
         return self.model_loader.load_summarizer()
 
     def summarize(self, text: str, max_sentences: int = 2) -> tuple[str, str]:
-        if not text:
+        prepared_text = self.text_cleaner.clean_for_model(text)
+
+        if not prepared_text:
             return "", "empty"
 
         summarizer = self._get_summarizer()
@@ -19,7 +23,7 @@ class SummarizerService:
         if summarizer is not None:
             try:
                 result = summarizer(
-                    text,
+                    prepared_text,
                     max_length=80,
                     min_length=20,
                     do_sample=False,
@@ -36,21 +40,17 @@ class SummarizerService:
             except Exception:
                 pass
 
-        fallback = self._rule_based_fallback(text=text, max_sentences=max_sentences)
+        fallback = self._rule_based_fallback(text=prepared_text, max_sentences=max_sentences)
         fallback = self.text_postprocessor.cleanup_summary(fallback)
         return fallback, "fallback"
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:
-        sentences = [
-            sentence.strip()
-            for sentence in text.replace("!", ".").replace("?", ".").split(".")
-            if sentence.strip()
-        ]
+        sentences = self.text_cleaner.split_sentences(text)
 
         if not sentences:
             return text.strip()
 
-        summary = ". ".join(sentences[:max_sentences]).strip()
+        summary = " ".join(sentences[:max_sentences]).strip()
 
         if summary and not summary.endswith("."):
             summary += "."

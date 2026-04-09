@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+from app.utils.html_cleaner import clean_html
+
 
 class ModerationService:
     def __init__(self) -> None:
@@ -31,10 +33,12 @@ class ModerationService:
         if not text:
             return []
 
+        normalized_text = clean_html(text).lower()
+
         found = [
             word
             for word, pattern in self._patterns.items()
-            if pattern.search(text)
+            if pattern.search(normalized_text)
         ]
         return sorted(found)
 

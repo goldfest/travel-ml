@@ -6,54 +6,59 @@ class ValidationService:
         errors = []
 
         if not name or len(name.strip()) < MIN_NAME_LENGTH:
-            errors.append("Название POI слишком короткое или отсутствует")
+            errors.append("POI name is missing or too short")
 
         return errors
 
     def validate_description(self, description: str) -> list[str]:
-        errors = []
+        warnings = []
 
         if not description or len(description.strip()) < MIN_DESCRIPTION_LENGTH:
-            errors.append("Описание POI слишком короткое или отсутствует")
+            warnings.append("POI description is missing or too short")
 
-        return errors
+        return warnings
 
-    def validate_coordinates(self, latitude: float, longitude: float) -> list[str]:
+    def validate_coordinates(self, latitude: float | None, longitude: float | None) -> list[str]:
         errors = []
 
+        if latitude is None or longitude is None:
+            errors.append("POI coordinates are missing")
+            return errors
+
         if latitude < -90 or latitude > 90:
-            errors.append("Некорректное значение latitude")
+            errors.append("Invalid latitude value")
 
         if longitude < -180 or longitude > 180:
-            errors.append("Некорректное значение longitude")
+            errors.append("Invalid longitude value")
 
         if latitude == 0.0 and longitude == 0.0:
-            errors.append("Координаты POI отсутствуют или не определены")
+            errors.append("POI coordinates are missing or unresolved")
 
         return errors
 
     def validate_address(self, address: str | None, require_address: bool) -> list[str]:
-        errors = []
+        warnings = []
 
         if require_address and (not address or not address.strip()):
-            errors.append("Адрес POI отсутствует")
+            warnings.append("POI address is missing")
 
-        return errors
+        return warnings
 
-    def validate_required_fields(
+    def validate_for_pipeline(
         self,
         name: str,
         description: str,
         address: str | None,
-        latitude: float,
-        longitude: float,
+        latitude: float | None,
+        longitude: float | None,
         require_address: bool = True,
-    ) -> list[str]:
+    ) -> tuple[list[str], list[str]]:
         errors = []
+        warnings = []
 
         errors.extend(self.validate_name(name))
-        errors.extend(self.validate_description(description))
         errors.extend(self.validate_coordinates(latitude, longitude))
-        errors.extend(self.validate_address(address, require_address))
+        warnings.extend(self.validate_description(description))
+        warnings.extend(self.validate_address(address, require_address))
 
-        return errors
+        return errors, warnings
