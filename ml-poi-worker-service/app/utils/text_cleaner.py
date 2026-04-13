@@ -1,4 +1,5 @@
 import re
+from app.utils.text_splitter import split_sentences
 
 MAX_DESCRIPTION_LENGTH = 2000
 MAX_MODEL_INPUT_LENGTH = 1500
@@ -19,15 +20,7 @@ class TextCleaner:
         return shortened or cleaned[:limit].strip()
 
     def split_sentences(self, value: str) -> list[str]:
-        cleaned = self.normalize_whitespace(value)
-        if not cleaned:
-            return []
-
-        return [
-            sentence.strip()
-            for sentence in re.split(r"(?<=[.!?])\s+", cleaned)
-            if sentence.strip()
-        ]
+        return split_sentences(self.normalize_whitespace(value))
 
     def deduplicate_sentences(self, value: str, limit: int | None = None) -> str:
         sentences = self.split_sentences(value)

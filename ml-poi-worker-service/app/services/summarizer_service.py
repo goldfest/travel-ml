@@ -1,10 +1,13 @@
 from app.models.model_loader import model_loader
 from app.utils.text_cleaner import TextCleaner
 from app.utils.text_postprocessor import TextPostprocessor
+from app.core.logging import get_logger
+
 
 
 class SummarizerService:
     def __init__(self) -> None:
+        self.logger = get_logger(__name__)
         self.model_loader = model_loader
         self.text_postprocessor = TextPostprocessor()
         self.text_cleaner = TextCleaner()
@@ -36,12 +39,14 @@ class SummarizerService:
                     summary_text = self.text_postprocessor.cleanup_summary(summary_text)
 
                     if summary_text:
+                        self.logger.info("Summarizer used ML mode")
                         return summary_text, "ml"
-            except Exception:
-                pass
+            except Exception as exc:
+                self.logger.warning("Summarizer ML mode failed, falling back to rules: %s", exc)
 
         fallback = self._rule_based_fallback(text=prepared_text, max_sentences=max_sentences)
         fallback = self.text_postprocessor.cleanup_summary(fallback)
+        self.logger.info("Summarizer used fallback mode")
         return fallback, "fallback"
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:

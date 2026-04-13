@@ -17,10 +17,12 @@ from app.services.slug_service import SlugService
 from app.services.summarizer_service import SummarizerService
 from app.services.tags_service import TagsService
 from app.services.validation_service import ValidationService
+from app.core.logging import get_logger
 
 
 class PipelineService:
     def __init__(self) -> None:
+        from app.core.logging import get_logger
         self.import_service = ImportService()
         self.slug_service = SlugService()
         self.moderation_service = ModerationService()
@@ -31,6 +33,12 @@ class PipelineService:
         self.tags_service = TagsService()
 
     def import_from_source(self, request: ImportFromSourceRequest) -> EnrichResponse:
+        self.logger.info(
+            "Pipeline import_from_source started: source_code=%s source_url=%s city_id=%s",
+            request.source_code,
+            request.source_url,
+            request.city_id,
+        )
         raw_poi = self.import_service.import_from_source(
             source_code=request.source_code,
             source_url=str(request.source_url),
@@ -44,6 +52,14 @@ class PipelineService:
 
     def enrich_raw(self, request: EnrichRawRequest) -> EnrichResponse:
         raw_request = request.raw_poi
+
+        self.logger.info(
+            "Pipeline enrich_raw started: source_code=%s external_id=%s name=%s city_id=%s",
+            raw_request.source.source_code,
+            raw_request.source.external_id,
+            raw_request.name,
+            request.city_id,
+        )
 
         raw_poi = RawPoiData(
             name=raw_request.name,
@@ -161,6 +177,17 @@ class PipelineService:
             status = StatusRecommendation.PENDING_REVIEW
         else:
             status = StatusRecommendation.AUTO_PUBLISH
+
+        self.logger.info(
+            "Pipeline decision: source_code=%s external_id=%s status=%s quality_score=%.2f confidence_score=%.2f warnings=%s errors=%s",
+            raw_poi.source.source_code,
+            raw_poi.source.external_id,
+            status,
+            quality_score,
+            confidence_score,
+            validation_warnings,
+            validation_errors,
+        )
 
         poi_draft = PoiDraft(
             name=name,

@@ -1,11 +1,13 @@
 import re
 from pathlib import Path
 
+from app.core.logging import get_logger
 from app.utils.html_cleaner import clean_html
 
 
 class ModerationService:
     def __init__(self) -> None:
+        self.logger = get_logger(__name__)
         self.stop_words = self._load_stop_words()
         self._patterns = self._compile_patterns(self.stop_words)
 
@@ -40,6 +42,8 @@ class ModerationService:
             for word, pattern in self._patterns.items()
             if pattern.search(normalized_text)
         ]
+        if found:
+            self.logger.warning("Stop words detected: %s", sorted(found))
         return sorted(found)
 
     def has_toxicity(self, text: str) -> bool:
