@@ -19,10 +19,11 @@ from app.services.tags_service import TagsService
 from app.services.validation_service import ValidationService
 from app.core.logging import get_logger
 
+logger = get_logger(__name__)
 
 class PipelineService:
     def __init__(self) -> None:
-        from app.core.logging import get_logger
+        self.logger = logger
         self.import_service = ImportService()
         self.slug_service = SlugService()
         self.moderation_service = ModerationService()
