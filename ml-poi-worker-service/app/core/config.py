@@ -6,8 +6,9 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
-    debug: bool = True
+    debug: bool = False
     api_prefix: str = "/api/v1"
+    summarizer_model_name: str = "IlyaGusev/rut5_base_sum_gazeta"
 
     model_config = SettingsConfigDict(
         env_file=".env",

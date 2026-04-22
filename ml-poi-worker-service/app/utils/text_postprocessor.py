@@ -7,16 +7,22 @@ class TextPostprocessor:
             return ""
 
         text = " ".join(text.split())
+        text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+        text = re.sub(r"([.,!?;:]){2,}", r"\1", text)
 
         sentences = self._split_sentences(text)
         unique_sentences = []
 
         seen = set()
         for sentence in sentences:
+            sentence = sentence.strip()
+            if len(sentence) < 10:
+                continue
+
             normalized = self._normalize_sentence(sentence)
             if normalized and normalized not in seen:
                 seen.add(normalized)
-                unique_sentences.append(sentence.strip())
+                unique_sentences.append(sentence)
 
         result = ". ".join(unique_sentences).strip()
 
@@ -33,4 +39,6 @@ class TextPostprocessor:
         ]
 
     def _normalize_sentence(self, sentence: str) -> str:
-        return re.sub(r"\s+", " ", sentence.strip().lower())
+        sentence = sentence.strip().lower()
+        sentence = re.sub(r"\s+", " ", sentence)
+        return sentence

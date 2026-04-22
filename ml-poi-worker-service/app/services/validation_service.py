@@ -2,6 +2,12 @@ from app.core.constants import MIN_DESCRIPTION_LENGTH, MIN_NAME_LENGTH
 
 
 class ValidationService:
+    PLACEHOLDER_DESCRIPTIONS = {
+        "описание объекта временно отсутствует.",
+        "нет описания.",
+        "описание отсутствует.",
+    }
+
     def validate_name(self, name: str) -> list[str]:
         errors = []
 
@@ -15,6 +21,11 @@ class ValidationService:
 
         if not description or len(description.strip()) < MIN_DESCRIPTION_LENGTH:
             warnings.append("POI description is missing or too short")
+            return warnings
+
+        normalized = description.strip().lower()
+        if normalized in self.PLACEHOLDER_DESCRIPTIONS:
+            warnings.append("POI description is placeholder-like")
 
         return warnings
 

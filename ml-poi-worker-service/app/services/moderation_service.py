@@ -9,7 +9,6 @@ class ModerationService:
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
         self.stop_words = self._load_stop_words()
-        self._patterns = self._compile_patterns(self.stop_words)
 
     def _load_stop_words(self) -> set[str]:
         stop_words_path = Path(__file__).resolve().parent.parent / "resources" / "stop_words.txt"
@@ -21,30 +20,49 @@ class ModerationService:
             return {
                 line.strip().lower()
                 for line in file
-                if line.strip()
+                if line.strip() and not line.strip().startswith("#")
             }
 
-    def _compile_patterns(self, stop_words: set[str]) -> dict[str, re.Pattern]:
-        patterns: dict[str, re.Pattern] = {}
-        for word in stop_words:
-            escaped = re.escape(word)
-            patterns[word] = re.compile(rf"(?<!\w){escaped}(?!\w)", flags=re.IGNORECASE | re.UNICODE)
-        return patterns
+    def _normalize_for_moderation(self, text: str) -> str:
+        text = clean_html(text).lower()
+        text = text.replace("ё", "е")
+
+        replacements = {
+            "@": "а",
+            "4": "ч",
+            "3": "з",
+            "0": "о",
+            "1": "и",
+            "!": "и",
+            "$": "с",
+        }
+        for src, dst in replacements.items():
+            text = text.replace(src, dst)
+
+        # убираем разделители внутри слов
+        text = re.sub(r"[_*\-+=~`'\"|\\/]", "", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
 
     def detect_stop_words(self, text: str) -> list[str]:
         if not text:
             return []
 
-        normalized_text = clean_html(text).lower()
+        normalized_text = self._normalize_for_moderation(text)
+        compact_text = re.sub(r"[^а-яa-z0-9]", "", normalized_text)
 
-        found = [
-            word
-            for word, pattern in self._patterns.items()
-            if pattern.search(normalized_text)
-        ]
+        found = []
+
+        for word in self.stop_words:
+            if word in normalized_text or word in compact_text:
+                found.append(word)
+
+        found = sorted(set(found))
+
         if found:
-            self.logger.warning("Stop words detected: %s", sorted(found))
-        return sorted(found)
+            self.logger.warning("Stop words detected: %s", found)
+
+        return found
 
     def has_toxicity(self, text: str) -> bool:
         return len(self.detect_stop_words(text)) > 0

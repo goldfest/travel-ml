@@ -4,8 +4,6 @@ from enum import Enum
 class SourceCode(str, Enum):
     TWO_GIS = "TWO_GIS"
     WIKIPEDIA = "WIKIPEDIA"
-    MAPS = "MAPS"
-    MANUAL = "MANUAL"
 
 
 class StatusRecommendation(str, Enum):

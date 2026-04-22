@@ -72,7 +72,7 @@ class PipelineService:
             site_url=raw_request.site_url,
             price_level=raw_request.price_level,
             poi_type_code=raw_request.poi_type_code,
-            features=raw_request.features,
+            features=raw_request.features or {},
             hours=[
                 RawHourData(
                     day_of_week=hour.day_of_week,
@@ -80,14 +80,14 @@ class PipelineService:
                     close_time=hour.close_time,
                     around_the_clock=hour.around_the_clock,
                 )
-                for hour in raw_request.hours
+                for hour in (raw_request.hours or [])
             ],
             media=[
                 RawMediaData(
                     url=media.url,
                     media_type=media.media_type,
                 )
-                for media in raw_request.media
+                for media in (raw_request.media or [])
             ],
             source=RawSourceData(
                 source_code=raw_request.source.source_code,
@@ -114,11 +114,6 @@ class PipelineService:
         address = self.normalization_service.normalize_address(raw_poi.address)
         description_full = self.normalization_service.normalize_description(raw_poi.description)
 
-        description, summary_mode = self.summarizer_service.summarize(
-            description_full,
-            max_sentences=2,
-        )
-
         poi_type_hint_normalized = poi_type_hint.strip().lower() if poi_type_hint else None
 
         if poi_type_hint_normalized in {None, "", "string"}:
@@ -126,7 +121,24 @@ class PipelineService:
         else:
             poi_type_code = poi_type_hint_normalized
 
-        slug = self.slug_service.generate_slug(name=name, city_id=city_id)
+        description, summary_mode = self.summarizer_service.summarize(
+            description_full,
+            max_sentences=2,
+        )
+
+        if not description:
+            description = self.summarizer_service.build_structured_fallback(
+                name=name,
+                poi_type_code=poi_type_code,
+                address=address,
+            )
+            summary_mode = "structured_fallback"
+
+        slug = self.slug_service.generate_slug(
+            name=name,
+            poi_type_code=poi_type_code,
+            city_id=city_id,
+        )
 
         tags = self.tags_service.generate_tags(
             name=name,
@@ -146,8 +158,9 @@ class PipelineService:
             require_address=require_address,
         )
 
-        stop_words_detected = self.moderation_service.detect_stop_words(description)
-        toxicity_detected = self.moderation_service.has_toxicity(description)
+        moderation_text = f"{name} {description_full} {description}".strip()
+        stop_words_detected = self.moderation_service.detect_stop_words(moderation_text)
+        toxicity_detected = self.moderation_service.has_toxicity(moderation_text)
 
         has_coordinates = (
             raw_poi.latitude is not None
@@ -168,7 +181,7 @@ class PipelineService:
             confidence_score=confidence_score,
             toxicity_detected=toxicity_detected,
             errors_count=len(validation_errors) + len(validation_warnings),
-            used_fallback=(summary_mode == "fallback"),
+            used_fallback=summary_mode in {"fallback", "structured_fallback", "short_fallback"},
             has_duplicate_risk=False,
         )
 
@@ -198,12 +211,12 @@ class PipelineService:
             address=address,
             latitude=raw_poi.latitude,
             longitude=raw_poi.longitude,
-            phone=raw_poi.phone,
-            site_url=raw_poi.site_url,
+            phone=raw_poi.phone.strip() if raw_poi.phone else None,
+            site_url=raw_poi.site_url.strip() if raw_poi.site_url else None,
             price_level=raw_poi.price_level,
             city_id=city_id,
             poi_type_code=poi_type_code,
-            features=raw_poi.features,
+            features=raw_poi.features or {},
             hours=[
                 PoiHourDraft(
                     day_of_week=hour.day_of_week,
@@ -211,14 +224,14 @@ class PipelineService:
                     close_time=hour.close_time,
                     around_the_clock=hour.around_the_clock,
                 )
-                for hour in raw_poi.hours
+                for hour in (raw_poi.hours or [])
             ],
             media=[
                 PoiMediaDraft(
                     url=media.url,
-                    media_type=MediaType(media.media_type),
+                    media_type=self._normalize_media_type(media.media_type),
                 )
-                for media in raw_poi.media
+                for media in (raw_poi.media or [])
             ],
             sources=[
                 PoiSourceDraft(
@@ -232,6 +245,12 @@ class PipelineService:
 
         warnings = [f"Summarizer mode: {summary_mode}"]
         warnings.extend(validation_warnings)
+
+        if summary_mode == "structured_fallback":
+            warnings.append("Structured fallback description was used")
+
+        if summary_mode == "short_fallback":
+            warnings.append("Short text fallback was used")
 
         if stop_words_detected:
             warnings.append("Stop words detected in generated description")
@@ -253,3 +272,12 @@ class PipelineService:
             quality=quality,
             status_recommendation=status,
         )
+    
+    def _normalize_media_type(self, value: str | None) -> MediaType:
+        if not value:
+            return MediaType.IMAGE
+
+        try:
+            return MediaType(value.upper())
+        except Exception:
+            return MediaType.IMAGE

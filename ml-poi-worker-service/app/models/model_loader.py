@@ -1,4 +1,5 @@
 from transformers import pipeline
+from app.core.config import settings
 
 
 class ModelLoader:
@@ -12,7 +13,7 @@ class ModelLoader:
             return self._summarizer
 
         try:
-            model_name = "IlyaGusev/rut5_base_sum_gazeta"
+            model_name = settings.summarizer_model_name
             self._summarizer = pipeline(
                 "summarization",
                 model=model_name,
