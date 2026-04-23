@@ -36,8 +36,8 @@ class PoiDraft(BaseModel):
     tags: List[str] = Field(default_factory=list)
     description: str
     address: Optional[str] = None
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     phone: Optional[str] = None
     site_url: Optional[str] = None
     price_level: Optional[int] = Field(default=None, ge=0, le=4)

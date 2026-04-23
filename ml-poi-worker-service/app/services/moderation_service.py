@@ -35,13 +35,26 @@ class ModerationService:
             "1": "и",
             "!": "и",
             "$": "с",
+            "x": "х",
+            "y": "у",
+            "a": "а",
+            "e": "е",
+            "o": "о",
+            "p": "р",
+            "c": "с",
+            "k": "к",
+            "m": "м",
+            "t": "т",
+            "b": "в",
         }
+
         for src, dst in replacements.items():
             text = text.replace(src, dst)
 
-        # убираем разделители внутри слов
-        text = re.sub(r"[_*\-+=~`'\"|\\/]", "", text)
+        # убираем спецсимволы и разделители внутри слов
+        text = re.sub(r"[_*\-+=~`'\"|\\/^<>.,:;()\[\]{}]", "", text)
         text = re.sub(r"\s+", " ", text).strip()
+
         return text
 
     def detect_stop_words(self, text: str) -> list[str]:
@@ -56,6 +69,19 @@ class ModerationService:
         for word in self.stop_words:
             if word in normalized_text or word in compact_text:
                 found.append(word)
+
+        # дополнительные паттерны на маскировку
+        regex_patterns = {
+            "бляд": r"бл[яа@]д",
+            "хуе": r"х[уy][еe]",
+            "хуй": r"х[уy]й",
+            "пизд": r"п[и1][з3]д",
+            "еб": r"[еe][б6]",
+        }
+
+        for label, pattern in regex_patterns.items():
+            if re.search(pattern, normalized_text):
+                found.append(label)
 
         found = sorted(set(found))
 

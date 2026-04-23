@@ -1,21 +1,42 @@
+import re
 from app.utils.html_cleaner import clean_html
-from app.utils.text_cleaner import TextCleaner
 
 
 class NormalizationService:
-    def __init__(self) -> None:
-        self.text_cleaner = TextCleaner()
+    NOISE_PHRASES = [
+        "подробнее",
+        "читать далее",
+        "архив",
+        "экспозиции",
+        "меню",
+        "контакты",
+        "официальный сайт",
+        "перейти",
+        "источник",
+    ]
 
-    def normalize_text(self, text: str | None) -> str:
-        cleaned = clean_html(text)
-        return self.text_cleaner.normalize_whitespace(cleaned)
+    def normalize_name(self, value: str | None) -> str:
+        if not value:
+            return ""
+        return re.sub(r"\s+", " ", value).strip()
 
-    def normalize_name(self, name: str | None) -> str:
-        return self.normalize_text(name)
+    def normalize_address(self, value: str | None) -> str:
+        if not value:
+            return ""
+        return re.sub(r"\s+", " ", value).strip()
 
-    def normalize_description(self, description: str | None) -> str:
-        cleaned = self.normalize_text(description)
-        return self.text_cleaner.clean_description(cleaned)
+    def normalize_description(self, value: str | None) -> str:
+        if not value:
+            return ""
 
-    def normalize_address(self, address: str | None) -> str:
-        return self.normalize_text(address)
+        text = clean_html(value)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        for phrase in self.NOISE_PHRASES:
+            text = re.sub(rf"\b{re.escape(phrase)}\b", "", text, flags=re.IGNORECASE)
+
+        text = re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+        text = re.sub(r"([.,!?;:]){2,}", r"\1", text)
+
+        return text

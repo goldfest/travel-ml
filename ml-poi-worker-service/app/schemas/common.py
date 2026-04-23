@@ -25,8 +25,8 @@ class RawPoiData(BaseModel):
     name: str
     description: str
     address: Optional[str] = None
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     phone: Optional[str] = None
     site_url: Optional[str] = None
     price_level: Optional[int] = None
