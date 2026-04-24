@@ -185,8 +185,24 @@ class PipelineService:
             has_duplicate_risk=False,
         )
 
+        is_park_like = poi_type_code == "park"
+
+        only_soft_warnings = all(
+            warning in {
+                "POI address is missing or too short",
+                "POI address is missing",
+                "No media provided by source",
+                "Short text fallback was used",
+                "Structured fallback description was used",
+                "POI description is missing or too short",
+            }
+            for warning in validation_warnings
+        )
+
         if validation_errors:
             status = StatusRecommendation.REJECTED
+        elif is_park_like and not toxicity_detected and has_coordinates and quality_score >= 0.60:
+            status = StatusRecommendation.AUTO_PUBLISH
         elif toxicity_detected or validation_warnings or quality_score < 0.8:
             status = StatusRecommendation.PENDING_REVIEW
         else:

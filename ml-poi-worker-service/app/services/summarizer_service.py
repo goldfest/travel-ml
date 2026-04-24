@@ -76,37 +76,39 @@ class SummarizerService:
         lower_name = normalized_name.lower()
 
         if "дом-музей" in lower_name or "дом музей" in lower_name:
-            return "Дом-музей."
+            return "Дом-музей, посвящённый истории и культурному наследию города."
         if "квартира-музей" in lower_name or "квартира музей" in lower_name:
-            return "Квартира-музей."
+            return "Квартира-музей, связанная с историей и культурным наследием города."
         if "художественный музей" in lower_name:
-            return "Художественный музей."
+            return "Художественный музей с экспозициями, посвящёнными искусству и культуре."
         if "краеведческий музей" in lower_name:
-            return "Краеведческий музей."
+            return "Краеведческий музей, посвящённый истории и культуре региона."
         if "центр-музей" in lower_name or "центр музей" in lower_name:
-            return "Музей."
+            return "Музей, посвящённый истории, культуре и памятным событиям."
         if "музей" in lower_name:
-            return "Музей."
+            return "Музей, посвящённый истории, культуре и памятным событиям."
 
         if "парк культуры" in lower_name:
-            return "Парк культуры и отдыха."
+            return "Парк культуры и отдыха, подходящий для прогулок и досуга."
         if "парк" in lower_name:
-            return "Парк."
+            return "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе."
         if "сквер" in lower_name:
-            return "Сквер."
+            return "Сквер — благоустроенное общественное пространство для прогулок и отдыха."
+        if "аллея" in lower_name:
+            return "Аллея — открытое городское пространство для прогулок и отдыха."
         if "сад" in lower_name:
-            return "Сад."
+            return "Сад — зелёная зона для прогулок и спокойного отдыха."
 
         if "кофейн" in lower_name:
-            return "Кофейня."
+            return "Кофейня, где можно отдохнуть и заказать горячие напитки."
         if "кафе" in lower_name:
-            return "Кафе."
+            return "Кафе для отдыха, встреч и повседневного посещения."
         if "ресторан" in lower_name:
-            return "Ресторан."
+            return "Ресторан для обедов, ужинов и встреч в комфортной обстановке."
         if "бар" in lower_name:
-            return "Бар."
+            return "Бар для отдыха и встреч в городской среде."
         if "отель" in lower_name or "гостиниц" in lower_name:
-            return "Гостиница."
+            return "Гостиница для размещения и временного проживания гостей."
 
         return self._fallback_by_type_code(normalized_name, poi_type_code)
 
@@ -115,22 +117,22 @@ class SummarizerService:
         code = (poi_type_code or "").strip().lower()
 
         if code == "museum":
-            return "Музей."
+            return "Музей, посвящённый истории, культуре и памятным событиям."
         if code == "park":
-            return "Парк."
+            return "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе."
         if code == "cafe":
-            return "Кафе."
+            return "Кафе для отдыха, встреч и повседневного посещения."
         if code == "restaurant":
-            return "Ресторан."
+            return "Ресторан для обедов, ужинов и встреч в комфортной обстановке."
         if code == "hotel":
-            return "Гостиница."
+            return "Гостиница для размещения и временного проживания гостей."
         if code == "landmark":
             if name:
-                return f"{name}."
-            return "Достопримечательность."
+                return f"{name} — интересный объект, связанный с культурой, историей или городской средой."
+            return "Достопримечательность, представляющая интерес для посещения."
 
         if name:
-            return f"{name}."
+            return f"{name} — интересный объект для посещения."
         return "Интересный объект для посещения."
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:
