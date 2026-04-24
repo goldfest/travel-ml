@@ -60,18 +60,78 @@ class SummarizerService:
         poi_type_code: str | None = None,
         address: str | None = None,
     ) -> str:
-        parts = []
+        base_phrase = self._build_fallback_base_phrase(name=name, poi_type_code=poi_type_code)
 
-        if name:
-            if poi_type_code:
-                parts.append(f"{name} — объект категории {poi_type_code}.")
-            else:
-                parts.append(f"{name} — интересный объект для посещения.")
+        parts: list[str] = []
+        if base_phrase:
+            parts.append(base_phrase)
 
         if address:
             parts.append(f"Расположен по адресу: {address}.")
 
         return " ".join(parts).strip()
+    
+    def _build_fallback_base_phrase(self, name: str | None, poi_type_code: str | None) -> str:
+        normalized_name = (name or "").strip()
+        lower_name = normalized_name.lower()
+
+        if "дом-музей" in lower_name or "дом музей" in lower_name:
+            return "Дом-музей."
+        if "квартира-музей" in lower_name or "квартира музей" in lower_name:
+            return "Квартира-музей."
+        if "художественный музей" in lower_name:
+            return "Художественный музей."
+        if "краеведческий музей" in lower_name:
+            return "Краеведческий музей."
+        if "центр-музей" in lower_name or "центр музей" in lower_name:
+            return "Музей."
+        if "музей" in lower_name:
+            return "Музей."
+
+        if "парк культуры" in lower_name:
+            return "Парк культуры и отдыха."
+        if "парк" in lower_name:
+            return "Парк."
+        if "сквер" in lower_name:
+            return "Сквер."
+        if "сад" in lower_name:
+            return "Сад."
+
+        if "кофейн" in lower_name:
+            return "Кофейня."
+        if "кафе" in lower_name:
+            return "Кафе."
+        if "ресторан" in lower_name:
+            return "Ресторан."
+        if "бар" in lower_name:
+            return "Бар."
+        if "отель" in lower_name or "гостиниц" in lower_name:
+            return "Гостиница."
+
+        return self._fallback_by_type_code(normalized_name, poi_type_code)
+
+
+    def _fallback_by_type_code(self, name: str, poi_type_code: str | None) -> str:
+        code = (poi_type_code or "").strip().lower()
+
+        if code == "museum":
+            return "Музей."
+        if code == "park":
+            return "Парк."
+        if code == "cafe":
+            return "Кафе."
+        if code == "restaurant":
+            return "Ресторан."
+        if code == "hotel":
+            return "Гостиница."
+        if code == "landmark":
+            if name:
+                return f"{name}."
+            return "Достопримечательность."
+
+        if name:
+            return f"{name}."
+        return "Интересный объект для посещения."
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:
         sentences = self.text_cleaner.split_sentences(text)
