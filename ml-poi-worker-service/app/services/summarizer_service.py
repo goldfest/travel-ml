@@ -5,6 +5,36 @@ from app.core.logging import get_logger
 
 
 class SummarizerService:
+    TYPE_FALLBACKS = {
+        "museum": "Музей, посвящённый истории, культуре или памятным событиям.",
+        "park": "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе.",
+        "cafe": "Кафе для отдыха, встреч и повседневного посещения.",
+        "restaurant": "Ресторан для обедов, ужинов и встреч в комфортной обстановке.",
+        "hotel": "Гостиница для размещения и временного проживания гостей.",
+        "toilet": "Общественный туалет для посетителей города.",
+        "landmark": "Достопримечательность, представляющая интерес для посещения.",
+    }
+
+    NAME_FALLBACKS = [
+        (("дом-музей", "дом музей"), "Дом-музей, посвящённый истории и культурному наследию города."),
+        (("квартира-музей", "квартира музей"), "Квартира-музей, связанная с историей и культурным наследием города."),
+        (("художественный музей",), "Художественный музей с экспозициями, посвящёнными искусству и культуре."),
+        (("краеведческий музей",), "Краеведческий музей, посвящённый истории и культуре региона."),
+        (("центр-музей", "центр музей"), "Музей, посвящённый истории, культуре и памятным событиям."),
+        (("музей",), "Музей, посвящённый истории, культуре и памятным событиям."),
+        (("парк культуры",), "Парк культуры и отдыха, подходящий для прогулок и досуга."),
+        (("парк",), "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе."),
+        (("сквер",), "Сквер — благоустроенное общественное пространство для прогулок и отдыха."),
+        (("аллея",), "Аллея — открытое городское пространство для прогулок и отдыха."),
+        (("сад",), "Сад — зелёная зона для прогулок и спокойного отдыха."),
+        (("кофейн",), "Кофейня, где можно отдохнуть и заказать горячие напитки."),
+        (("кафе",), "Кафе для отдыха, встреч и повседневного посещения."),
+        (("ресторан",), "Ресторан для обедов, ужинов и встреч в комфортной обстановке."),
+        (("бар", "паб"), "Бар для отдыха и встреч в городской среде."),
+        (("отель", "гостиниц", "хостел"), "Гостиница для размещения и временного проживания гостей."),
+        (("туалет", "wc", "уборная"), "Общественный туалет для посетителей города."),
+    ]
+
     def __init__(self) -> None:
         self.logger = get_logger(__name__)
         self.model_loader = model_loader
@@ -32,8 +62,8 @@ class SummarizerService:
             try:
                 result = summarizer(
                     prepared_text,
-                    max_length=90,
-                    min_length=25,
+                    max_length=110,
+                    min_length=35,
                     do_sample=False,
                     no_repeat_ngram_size=3,
                     repetition_penalty=1.3,
@@ -59,81 +89,135 @@ class SummarizerService:
         name: str,
         poi_type_code: str | None = None,
         address: str | None = None,
+        features: dict[str, str] | None = None,
+        base_description: str | None = None,
     ) -> str:
         base_phrase = self._build_fallback_base_phrase(name=name, poi_type_code=poi_type_code)
 
         parts: list[str] = []
-        if base_phrase:
+        cleaned_base = self.text_cleaner.clean_description(base_description)
+
+        if cleaned_base and not self._is_placeholder_like(cleaned_base):
+            parts.append(cleaned_base)
+        elif base_phrase:
             parts.append(base_phrase)
+
+        feature_sentence = self._build_feature_sentence(features or {})
+        if feature_sentence:
+            parts.append(feature_sentence)
 
         if address:
             parts.append(f"Расположен по адресу: {address}.")
 
-        return " ".join(parts).strip()
-    
+        result = " ".join(parts).strip()
+        return self.text_postprocessor.cleanup_summary(result)
+
+    def improve_short_description(
+        self,
+        name: str,
+        poi_type_code: str | None,
+        address: str | None,
+        description: str,
+        features: dict[str, str] | None = None,
+    ) -> tuple[str, bool]:
+        cleaned = self.text_cleaner.clean_description(description)
+
+        if len(cleaned) >= 110 and len(self.text_cleaner.split_sentences(cleaned)) >= 2:
+            return cleaned, False
+
+        improved = self.build_structured_fallback(
+            name=name,
+            poi_type_code=poi_type_code,
+            address=address,
+            features=features,
+            base_description=cleaned,
+        )
+
+        return improved or cleaned, bool(improved and improved != cleaned)
+
     def _build_fallback_base_phrase(self, name: str | None, poi_type_code: str | None) -> str:
         normalized_name = (name or "").strip()
-        lower_name = normalized_name.lower()
+        lower_name = normalized_name.lower().replace("ё", "е")
 
-        if "дом-музей" in lower_name or "дом музей" in lower_name:
-            return "Дом-музей, посвящённый истории и культурному наследию города."
-        if "квартира-музей" in lower_name or "квартира музей" in lower_name:
-            return "Квартира-музей, связанная с историей и культурным наследием города."
-        if "художественный музей" in lower_name:
-            return "Художественный музей с экспозициями, посвящёнными искусству и культуре."
-        if "краеведческий музей" in lower_name:
-            return "Краеведческий музей, посвящённый истории и культуре региона."
-        if "центр-музей" in lower_name or "центр музей" in lower_name:
-            return "Музей, посвящённый истории, культуре и памятным событиям."
-        if "музей" in lower_name:
-            return "Музей, посвящённый истории, культуре и памятным событиям."
-
-        if "парк культуры" in lower_name:
-            return "Парк культуры и отдыха, подходящий для прогулок и досуга."
-        if "парк" in lower_name:
-            return "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе."
-        if "сквер" in lower_name:
-            return "Сквер — благоустроенное общественное пространство для прогулок и отдыха."
-        if "аллея" in lower_name:
-            return "Аллея — открытое городское пространство для прогулок и отдыха."
-        if "сад" in lower_name:
-            return "Сад — зелёная зона для прогулок и спокойного отдыха."
-
-        if "кофейн" in lower_name:
-            return "Кофейня, где можно отдохнуть и заказать горячие напитки."
-        if "кафе" in lower_name:
-            return "Кафе для отдыха, встреч и повседневного посещения."
-        if "ресторан" in lower_name:
-            return "Ресторан для обедов, ужинов и встреч в комфортной обстановке."
-        if "бар" in lower_name:
-            return "Бар для отдыха и встреч в городской среде."
-        if "отель" in lower_name or "гостиниц" in lower_name:
-            return "Гостиница для размещения и временного проживания гостей."
+        for keywords, phrase in self.NAME_FALLBACKS:
+            if any(keyword in lower_name for keyword in keywords):
+                return phrase
 
         return self._fallback_by_type_code(normalized_name, poi_type_code)
 
-
     def _fallback_by_type_code(self, name: str, poi_type_code: str | None) -> str:
         code = (poi_type_code or "").strip().lower()
-
-        if code == "museum":
-            return "Музей, посвящённый истории, культуре и памятным событиям."
-        if code == "park":
-            return "Парк для прогулок, отдыха и времяпрепровождения на свежем воздухе."
-        if code == "cafe":
-            return "Кафе для отдыха, встреч и повседневного посещения."
-        if code == "restaurant":
-            return "Ресторан для обедов, ужинов и встреч в комфортной обстановке."
-        if code == "hotel":
-            return "Гостиница для размещения и временного проживания гостей."
-        if code == "landmark":
-            if name:
-                return f"{name} — интересный объект, связанный с культурой, историей или городской средой."
-            return "Достопримечательность, представляющая интерес для посещения."
+        phrase = self.TYPE_FALLBACKS.get(code)
+        if phrase:
+            return phrase
 
         if name:
             return f"{name} — интересный объект для посещения."
         return "Интересный объект для посещения."
+
+    def _build_feature_sentence(self, features: dict[str, str]) -> str:
+        highlights: list[str] = []
+
+        for key, value in features.items():
+            text = f"{key} {value}".lower().replace("ё", "е")
+            normalized_value = str(value or "").strip()
+            if normalized_value.lower() == "false":
+                continue
+
+            if "чек" in text:
+                amount = self._extract_number(normalized_value or key)
+                if amount:
+                    highlights.append(f"средний чек — {amount} ₽")
+            elif "кухня" in text:
+                cuisine = self._normalize_cuisine(normalized_value or key)
+                if cuisine:
+                    highlights.append(f"представлена {cuisine}")
+            elif "wi-fi" in text or "wifi" in text:
+                highlights.append("есть Wi‑Fi")
+            elif "завтрак" in text:
+                highlights.append("подают завтраки")
+            elif "доставка" in text:
+                highlights.append("доступна доставка")
+            elif "навынос" in text:
+                highlights.append("можно заказать навынос")
+            elif "веранда" in text:
+                highlights.append("есть летняя веранда")
+            elif "с собак" in text or "pet" in text or "dog" in text:
+                highlights.append("можно с собакой")
+            elif "доступ" in text or "wheelchair" in text:
+                highlights.append("есть условия для маломобильных посетителей")
+            elif "детск" in text and "площад" in text:
+                highlights.append("есть детская площадка")
+
+            if len(highlights) >= 4:
+                break
+
+        unique_highlights = list(dict.fromkeys(highlights))
+        if not unique_highlights:
+            return ""
+
+        return "Особенности: " + ", ".join(unique_highlights) + "."
+
+    def _extract_number(self, value: str) -> str:
+        digits = "".join(ch for ch in value if ch.isdigit())
+        return digits
+
+    def _normalize_cuisine(self, value: str) -> str:
+        cleaned = " ".join(value.split()).lower().replace("ё", "е").strip(" .")
+        if not cleaned:
+            return ""
+        if not "кух" in cleaned:
+            return f"{cleaned} кухня"
+        return cleaned
+
+    def _is_placeholder_like(self, text: str) -> bool:
+        normalized = (text or "").strip().lower().replace("ё", "е")
+        return normalized in {
+            "описание объекта временно отсутствует.",
+            "нет описания.",
+            "описание отсутствует.",
+            "информация об объекте ограничена.",
+        }
 
     def _rule_based_fallback(self, text: str, max_sentences: int = 2) -> str:
         sentences = self.text_cleaner.split_sentences(text)

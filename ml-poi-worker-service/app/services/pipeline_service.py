@@ -131,8 +131,21 @@ class PipelineService:
                 name=name,
                 poi_type_code=poi_type_code,
                 address=address,
+                features=raw_poi.features or {},
+                base_description=description_full,
             )
             summary_mode = "structured_fallback"
+        else:
+            improved_description, was_improved = self.summarizer_service.improve_short_description(
+                name=name,
+                poi_type_code=poi_type_code,
+                address=address,
+                description=description,
+                features=raw_poi.features or {},
+            )
+            if was_improved:
+                description = improved_description
+                summary_mode = f"{summary_mode}+structured_enrichment"
 
         slug = self.slug_service.generate_slug(
             name=name,
@@ -181,7 +194,7 @@ class PipelineService:
             confidence_score=confidence_score,
             toxicity_detected=toxicity_detected,
             errors_count=len(validation_errors) + len(validation_warnings),
-            used_fallback=summary_mode in {"fallback", "structured_fallback", "short_fallback"},
+            used_fallback=any(marker in summary_mode for marker in {"fallback", "structured_fallback", "short_fallback"}),
             has_duplicate_risk=False,
         )
 
@@ -262,10 +275,13 @@ class PipelineService:
         warnings = [f"Summarizer mode: {summary_mode}"]
         warnings.extend(validation_warnings)
 
-        if summary_mode == "structured_fallback":
+        if "structured_fallback" in summary_mode:
             warnings.append("Structured fallback description was used")
 
-        if summary_mode == "short_fallback":
+        if "structured_enrichment" in summary_mode:
+            warnings.append("Structured enrichment was used for short description")
+
+        if "short_fallback" in summary_mode:
             warnings.append("Short text fallback was used")
 
         if stop_words_detected:
