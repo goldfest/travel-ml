@@ -9,5 +9,4 @@ rapidfuzz==3.10.0
 regex==2024.9.11
 python-dotenv==1.0.1
 transformers==4.46.3
-torch==2.5.1
 sentencepiece==0.2.0
